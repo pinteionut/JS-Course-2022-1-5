@@ -3,6 +3,8 @@ const app = express();
 const http = require("http");
 const { Server } = require("socket.io");
 
+const Game = require("./models/game");
+
 const port = 3000;
 const server = http.createServer(app);
 const io = new Server(server);
@@ -18,6 +20,7 @@ server.listen(port, () => {
 });
 
 let availableRooms = [];
+const games = {};
 
 const emitMenuData = () => {
   io.to("menu").emit("data", {
@@ -27,9 +30,7 @@ const emitMenuData = () => {
 };
 
 const emitRoomData = (roomName) => {
-  io.to(roomName).emit("data", {
-    room: roomName,
-  });
+  io.to(roomName).emit("data", { room: games[roomName].data() });
 };
 
 io.on("connection", (socket) => {
@@ -40,24 +41,43 @@ io.on("connection", (socket) => {
 
   emitMenuData();
 
-  socket.on("new-message", ({ message, roomName }) => {
-    io.to(roomName).emit("received-message", message);
+  socket.on("new-message", ({ message }) => {
+    io.to(socket.data.room).emit("received-message", message);
+    // socket.broadcast
+    //   .to(socket.data.room)
+    //   .emit(
+    //     "received-notification",
+    //     message.split(":")[0] + " a trimis un mesaj!"
+    //   );
   });
 
   socket.on("create-room", (roomName) => {
-    console.log("Created Room: " + roomName);
-    availableRooms.push(roomName);
-    socket.leave("menu");
-    socket.join(roomName);
-    emitRoomData(roomName);
-    emitMenuData();
+    console.log("[CREATED ROOM]" + roomName);
+
+    // indexOf returneaza -1 sau indexul
+    if (availableRooms.indexOf(roomName) >= 0) {
+      socket.emit("create-room-error", "Name is already used!");
+    } else {
+      availableRooms.push(roomName);
+      socket.leave("menu");
+      socket.join(roomName);
+      socket.data.room = roomName;
+
+      games[roomName] = new Game(roomName);
+
+      emitRoomData(roomName);
+      emitMenuData();
+    }
   });
 
   socket.on("join-room", (roomName) => {
     socket.leave("menu");
     socket.join(roomName);
     socket.data.room = roomName;
+    games[roomName].addPlayer();
+
     availableRooms = availableRooms.filter((room) => room !== roomName);
+
     emitRoomData(roomName);
     emitMenuData();
   });
