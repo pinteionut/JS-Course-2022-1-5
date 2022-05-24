@@ -1,12 +1,13 @@
 const RoomRow = (props) => {
   const joinRoom = () => {
-    props.socket.emit("join-room", props.room);
+    props.socket.emit("join-room", props.name);
   };
 
   return (
-    <li key={props.room} onClick={joinRoom}>
-      {props.room}
-    </li>
+    <div className="border mt20 d-flex p10 mill-row">
+      <div>{props.name}</div>
+      <button onClick={joinRoom}>Join</button>
+    </div>
   );
 };
 
